@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#075E54">
+<meta name="description" content="Phone number verification demo with animated 6-digit code and quick open in WhatsApp.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Verify">
+<title>Verify & Open WhatsApp</title>
+<style>
+  :root{
+    --wa-dark:#075E54;
+    --wa-green:#25D366;
+    --wa-teal:#128C7E;
+    --bg:#f0f2f5;
+    --card:#ffffff;
+    --text:#111b21;
+    --muted:#667781;
+    --otp-bg:#e9edef;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+
+  .phone-frame{
+    position:relative;
+    width:100%;
+    max-width:430px;
+    height:100dvh;
+    background:var(--bg);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  @media(min-width:480px){
+    body{background:#0b141a}
+    .phone-frame{
+      height:min(900px,96dvh);
+      border-radius:34px;
+      box-shadow:0 30px 70px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+  }
+
+  header{
+    background:var(--wa-dark);
+    color:#fff;
+    padding:16px 20px;
+    padding-top:calc(16px + env(safe-area-inset-top));
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-shrink:0;
+  }
+  header .logo{
+    width:34px;height:34px;border-radius:50%;
+    background:var(--wa-green);
+    display:grid;place-items:center;
+    flex-shrink:0;
+  }
+  header .logo svg{width:20px;height:20px;fill:#fff}
+  header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.2px}
+  header p{margin:2px 0 0;font-size:12px;opacity:.75}
+
+  main{flex:1;position:relative;overflow:hidden}
+  .screen{
+    position:absolute;inset:0;
+    padding:26px 22px;
+    display:flex;flex-direction:column;
+    opacity:0;transform:translateX(40px);
+    pointer-events:none;
+    transition:opacity .35s ease, transform .35s ease;
+    overflow-y:auto;
+  }
+  .screen.active{opacity:1;transform:none;pointer-events:auto}
+  .screen.exit-left{transform:translateX(-40px)}
+
+  .badge{
+    width:88px;height:88px;border-radius:50%;
+    background:linear-gradient(145deg,#25D366,#128C7E);
+    display:grid;place-items:center;margin:8px auto 22px;
+    box-shadow:0 12px 30px rgba(18,140,126,.35);
+  }
+  .badge svg{width:46px;height:46px;fill:#fff}
+
+  h2{
+    text-align:center;margin:0 0 8px;
+    font-size:23px;font-weight:700;
+  }
+  .sub{
+    text-align:center;color:var(--muted);
+    font-size:14.5px;line-height:1.5;margin:0 auto 26px;max-width:300px;
+  }
+
+  .field-label{
+    font-size:12.5px;font-weight:600;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;
+  }
+  .phone-row{display:flex;gap:10px;margin-bottom:22px}
+  .cc{
+    display:flex;align-items:center;gap:6px;
+    background:var(--card);border:2px solid #e2e6ea;
+    border-radius:14px;padding:0 12px;height:56px;
+    font-size:17px;font-weight:600;flex-shrink:0;
+  }
+  .cc select{
+    border:0;background:transparent;font-size:17px;font-weight:600;
+    outline:none;color:var(--text);appearance:none;padding-right:14px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%23667781'/></svg>");
+    background-repeat:no-repeat;background-position:right center;
+  }
+  .phone-input{
+    flex:1;min-width:0;height:56px;
+    background:var(--card);border:2px solid #e2e6ea;
+    border-radius:14px;padding:0 16px;
+    font-size:18px;font-weight:600;letter-spacing:1px;
+    outline:none;transition:border-color .2s, box-shadow .2s;
+  }
+  .phone-input:focus{border-color:var(--wa-teal);box-shadow:0 0 0 4px rgba(18,140,126,.13)}
+  .phone-input::placeholder{font-weight:400;letter-spacing:.5px;color:#9aa5ad}
+
+  .error{
+    color:#d33; font-size:13.5px; text-align:center;
+    min-height:18px; margin:-12px 0 12px; font-weight:500;
+  }
+
+  .btn{
+    margin-top:auto;
+    width:100%;height:58px;border:0;border-radius:16px;
+    background:var(--wa-green);color:#fff;
+    font-size:17.5px;font-weight:700;letter-spacing:.3px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
+    box-shadow:0 10px 24px rgba(37,211,102,.35);
+    transition:transform .12s ease, filter .2s;
+  }
+  .btn:active{transform:scale(.975)}
+  .btn:disabled{filter:grayscale(.5) brightness(.95);box-shadow:none;cursor:default}
+  .btn.ghost{
+    background:transparent;color:var(--wa-teal);
+    box-shadow:none;height:50px;font-size:15.5px;margin-top:14px;
+  }
+
+  .hint{
+    text-align:center;font-size:12.5px;color:var(--muted);
+    margin-top:16px;
+  }
+  .hint b{color:var(--text)}
+
+  /* OTP */
+  .target-line{
+    text-align:center;background:var(--card);
+    border:1px solid #e6eaee;border-radius:14px;
+    padding:12px 14px;margin-bottom:26px;font-size:15px;
+    color:var(--muted);
+  }
+  .target-line b{color:var(--text);letter-spacing:.5px}
+
+  .otp-boxes{
+    display:grid;grid-template-columns:repeat(6,1fr);
+    gap:8px;margin-bottom:8px;
+  }
+  .otp{
+    aspect-ratio:1/1.15;
+    background:var(--otp-bg);
+    border:2px solid transparent;border-radius:14px;
+    display:grid;place-items:center;
+    font-size:27px;font-weight:800;color:var(--text);
+    font-variant-numeric:tabular-nums;
+    transition:border-color .2s, background .2s, transform .2s;
+  }
+  .otp.scanning{
+    border-color:var(--wa-teal);
+    background:#fff;
+    animation:pulse 1s ease-in-out infinite;
+  }
+  .otp.filled{
+    background:#fff;border-color:var(--wa-green);
+    animation:pop .3s cubic-bezier(.3,1.6,.6,1);
+  }
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(18,140,126,.28)}50%{box-shadow:0 0 0 6px rgba(18,140,126,0)}}
+  @keyframes pop{0%{transform:scale(.7)}100%{transform:scale(1)}}
+
+  .status{
+    text-align:center;margin-top:22px;
+    font-size:15px;color:var(--muted);min-height:22px;font-weight:500;
+  }
+  .status b{color:var(--wa-teal)}
+
+  .progress{
+    height:6px;background:#dfe4e8;border-radius:99px;
+    overflow:hidden;margin-top:14px;
+  }
+  .progress span{
+    display:block;height:100%;width:0%;
+    background:linear-gradient(90deg,var(--wa-teal),var(--wa-green));
+    border-radius:99px;transition:width .3s ease;
+  }
+
+  /* success */
+  .check-wrap{
+    width:110px;height:110px;border-radius:50%;
+    background:linear-gradient(145deg,#25D366,#128C7E);
+    display:grid;place-items:center;margin:10px auto 24px;
+    box-shadow:0 16px 40px rgba(37,211,102,.4);
+    animation:popIn .5s cubic-bezier(.3,1.5,.5,1);
+  }
+  .check-wrap svg{width:58px;height:58px;stroke:#fff;stroke-width:4;fill:none;
+    stroke-linecap:round;stroke-linejoin:round;
+    stroke-dasharray:60;stroke-dashoffset:60;
+    animation:draw .5s .25s ease forwards;
+  }
+  @keyframes popIn{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+  @keyframes draw{to{stroke-dashoffset:0}}
+
+  .code-chip{
+    display:block;width:max-content;margin:0 auto 8px;
+    background:#fff;border:1px dashed #cfd6dc;border-radius:12px;
+    padding:10px 18px;font-size:24px;font-weight:800;letter-spacing:9px;
+    padding-left:27px;color:var(--wa-dark);
+  }
+
+  .footer-note{
+    text-align:center;font-size:11.5px;color:#98a2aa;
+    padding:14px 20px;
+    padding-bottom:calc(14px + env(safe-area-inset-bottom));
+    flex-shrink:0;
+  }
+
+  .wa-float{
+    position:absolute;right:18px;bottom:18px;
+    width:58px;height:58px;border-radius:50%;
+    background:var(--wa-green);border:0;
+    display:grid;place-items:center;cursor:pointer;
+    box-shadow:0 12px 28px rgba(37,211,102,.45);
+    transform:scale(0);transition:transform .35s cubic-bezier(.3,1.6,.5,1);
+    z-index:5;
+  }
+  .wa-float.show{transform:scale(1)}
+  .wa-float svg{width:30px;height:30px;fill:#fff}
+
+  .ripple{
+    position:absolute;border-radius:50%;
+    background:rgba(37,211,102,.35);
+    transform:scale(0);animation:rip .7s ease-out forwards;
+    pointer-events:none;
+  }
+  @keyframes rip{to{transform:scale(3.2);opacity:0}}
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm0 18.2a8.2 8.2 0 01-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1112 20.2zm4.6-6.1c-.3-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 01-3.3-2.9c-.2-.4.2-.4.6-1.2a.5.5 0 000-.5c0-.1-.6-1.4-.8-1.9s-.4-.4-.6-.4h-.5a1 1 0 00-.7.3 3 3 0 00-.9 2.2 5.2 5.2 0 001.1 2.7 11.9 11.9 0 004.6 4 5.3 5.3 0 002.4.5 2.8 2.8 0 001.9-1.3 2.3 2.3 0 00.2-1.3c-.1-.1-.3-.2-.6-.3z"/></svg>
+    </div>
+    <div>
+      <h1>WhatsApp Verify</h1>
+      <p>Secure number confirmation</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- STEP 1 : phone number -->
+    <section class="screen active" id="screen1">
+      <div class="badge">
+        <svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.2 11.4 11.4 0 003.6.6 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1 11.4 11.4 0 00.6 3.6 1 1 0 01-.3 1zM20 4v3a1 1 0 01-1 1A14 14 0 015 2a1 1 0 011-1h3a1 1 0 011 1 12 12 0 00.6 3 1 1 0 01-.3 1l-2.2 2.2"/></svg>
+      </div>
+      <h2>Enter your number</h2>
+      <p class="sub">We'll send a verification code to confirm it's you.</p>
+
+      <div class="field-label">Phone number</div>
+      <div class="phone-row">
+        <div class="cc">
+          <select id="country" aria-label="Country code">
+            <option value="+1" data-flag="🇺🇸">🇺🇸 +1</option>
+            <option value="+44" data-flag="🇬🇧">🇬🇧 +44</option>
+            <option value="+91" data-flag="🇮🇳" selected>🇮🇳 +91</option>
+            <option value="+92" data-flag="🇵🇰">🇵🇰 +92</option>
+            <option value="+971" data-flag="🇦🇪">🇦🇪 +971</option>
+            <option value="+233" data-flag="🇬🇭">🇬🇭 +233</option>
+            <option value="+234" data-flag="🇳🇬">🇳🇬 +234</option>
+            <option value="+254" data-flag="🇰🇪">🇰🇪 +254</option>
+            <option value="+61" data-flag="🇦🇺">🇦🇺 +61</option>
+            <option value="+49" data-flag="🇩🇪">🇩🇪 +49</option>
+            <option value="+33" data-flag="🇫🇷">🇫🇷 +33</option>
+            <option value="+55" data-flag="🇧🇷">🇧🇷 +55</option>
+            <option value="+974" data-flag="🇶🇦">🇶🇦 +974</option>
+          </select>
+        </div>
+        <input class="phone-input" id="phone" type="tel" inputmode="numeric"
+               autocomplete="tel" placeholder="555 000 1234" maxlength="15">
+      </div>
+      <div class="error" id="err1"></div>
+
+      <button class="btn" id="sendBtn">
+        Send Code
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+      <div class="hint"></div>
+    </section>
+
+    <!-- STEP 2 : 6 boxes -->
+    <section class="screen" id="screen2">
+      <div class="badge">
+        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-4zm0 10.9h7c-.5 4.1-3.1 7.8-7 9.1V12H5V6.3l7-3.1z"/></svg>
+      </div>
+      <h2>Verification code</h2>
+      <p class="sub">Enter the 6-digit code below.</p>
+
+      <div class="target-line">Code sent to <b id="targetNum">+91 555 000 1234</b></div>
+
+      <div class="otp-boxes" id="otpBoxes">
+        <div class="otp"></div><div class="otp"></div><div class="otp"></div>
+        <div class="otp"></div><div class="otp"></div><div class="otp"></div>
+      </div>
+
+      <div class="status" id="status">Waiting…</div>
+      <div class="progress"><span id="bar"></span></div>
+
+      <button class="btn" id="verifyBtn" disabled>Verify</button>
+      <button class="btn ghost" id="backBtn">← Change number</button>
+    </section>
+
+    <!-- STEP 3 : success -->
+    <section class="screen" id="screen3">
+      <div class="check-wrap">
+        <svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg>
+      </div>
+      <h2>Verified</h2>
+      <p class="sub">Your number is confirmed. Opening WhatsApp…</p>
+
+      <span class="code-chip" id="codeChip">000000</span>
+      <div class="target-line" style="margin-bottom:24px"><b id="finalNum">+91 555 000 1234</b></div>
+
+      <button class="btn" id="openBtn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm0 18.2a8.2 8.2 0 01-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1112 20.2zm4.6-6.1c-.3-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 01-3.3-2.9c-.2-.4.2-.4.6-1.2a.5.5 0 000-.5c0-.1-.6-1.4-.8-1.9s-.4-.4-.6-.4h-.5a1 1 0 00-.7.3 3 3 0 00-.9 2.2 5.2 5.2 0 001.1 2.7 11.9 11.9 0 004.6 4 5.3 5.3 0 002.4.5 2.8 2.8 0 001.9-1.3 2.3 2.3 0 00.2-1.3c-.1-.1-.3-.2-.6-.3z"/></svg>
+        Open WhatsApp
+      </button>
+      <button class="btn ghost" id="restartBtn">Start over</button>
+    </section>
+
+    <button class="wa-float" id="fab" aria-label="Open WhatsApp">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm0 18.2a8.2 8.2 0 01-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1112 20.2zm4.6-6.1c-.3-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 01-3.3-2.9c-.2-.4.2-.4.6-1.2a.5.5 0 000-.5c0-.1-.6-1.4-.8-1.9s-.4-.4-.6-.4h-.5a1 1 0 00-.7.3 3 3 0 00-.9 2.2 5.2 5.2 0 001.1 2.7 11.9 11.9 0 004.6 4 5.3 5.3 0 002.4.5 2.8 2.8 0 001.9-1.3 2.3 2.3 0 00.2-1.3c-.1-.1-.3-.2-.6-.3z"/></svg>
+    </button>
+  </main>
+
+  <div class="footer-note"></div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const screens = [$('screen1'), $('screen2'), $('screen3')];
+  const boxes = Array.from($('otpBoxes').children);
+  let fullNumber = '', e164 = '', code = '';
+
+  function show(i){
+    screens.forEach((s,n)=>{
+      s.classList.remove('active','exit-left');
+      if(n===i) s.classList.add('active');
+      else if(n<i) s.classList.add('exit-left');
+    });
+    $('fab').classList.remove('show');
+  }
+
+  /* digit-only formatting */
+  $('phone').addEventListener('input', e=>{
+    let v = e.target.value.replace(/\D/g,'').slice(0,15);
+    e.target.value = v.replace(/(\d{3})(?=\d)/g,'$1 ').trim();
+    $('err1').textContent = '';
+  });
+
+  function validate(){
+    const digits = $('phone').value.replace(/\D/g,'');
+    if(digits.length < 7) return 'Please enter a valid phone number';
+    return '';
+  }
+
+  function ripple(btn, ev){
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    r.style.width = r.style.height = size + 'px';
+    r.style.left = (ev.clientX - rect.left - size/2) + 'px';
+    r.style.top  = (ev.clientY  - rect.top  - size/2) + 'px';
+    btn.appendChild(r);
+    setTimeout(()=>r.remove(), 700);
+  }
+
+  /* STEP 1 -> 2 */
+  $('sendBtn').addEventListener('click', e=>{
+    ripple($('sendBtn'), e);
+    const err = validate();
+    if(err){ $('err1').textContent = err; return; }
+
+    const cc = $('country').value;
+    const digits = $('phone').value.replace(/\D/g,'');
+    fullNumber = $('phone').value.trim();
+    e164 = cc + digits;
+
+    $('targetNum').textContent = cc + ' ' + fullNumber;
+    $('finalNum').textContent  = cc + ' ' + fullNumber;
+
+    code = Array.from({length:6}, ()=>Math.floor(Math.random()*10)).join('');
+    $('codeChip').textContent = code;
+
+    show(1);
+    runOtpAnimation();
+  });
+
+  $('phone').addEventListener('keydown', e=>{ if(e.key==='Enter') $('sendBtn').click(); });
+
+  /* STEP 2 : animate boxes one by one */
+  function runOtpAnimation(){
+    boxes.forEach(b=>{ b.textContent=''; b.className='otp'; });
+    $('bar').style.width = '0%';
+    $('verifyBtn').disabled = true;
+    $('status').innerHTML = 'Generating code<b>…</b>';
+
+    let i = 0;
+    const step = ()=>{
+      if(i >= boxes.length){
+        $('status').innerHTML = '<b>Code complete</b> — tap Verify';
+        $('bar').style.width = '100%';
+        $('verifyBtn').disabled = false;
+        return;
+      }
+      const box = boxes[i];
+      box.classList.add('scanning');
+
+      /* scramble a few digits then settle */
+      let ticks = 0;
+      const spin = setInterval(()=>{
+        box.textContent = Math.floor(Math.random()*10);
+        if(++ticks >= 8){
+          clearInterval(spin);
+          box.textContent = code[i];
+          box.classList.remove('scanning');
+          box.classList.add('filled');
+          $('bar').style.width = ((i+1)/6*100) + '%';
+          $('status').innerHTML = 'Receiving digit <b>' + (i+1) + '</b> of 6';
+          i++;
+          setTimeout(step, 340);
+        }
+      }, 70);
+    };
+    setTimeout(step, 600);
+  }
+
+  /* STEP 2 -> 3 */
+  $('verifyBtn').addEventListener('click', e=>{
+    ripple($('verifyBtn'), e);
+    $('verifyBtn').disabled = true;
+    $('status').innerHTML = 'Verifying…';
+    setTimeout(()=>{ show(2); setTimeout(()=>$('fab').classList.add('show'), 550); }, 550);
+  });
+
+  $('backBtn').addEventListener('click', ()=>show(0));
+
+  /* open WhatsApp */
+  function openWa(){
+    window.location.href = 'https://wa.me/' + e164.replace(/\D/g,'');
+  }
+  $('openBtn').addEventListener('click', e=>{ ripple($('openBtn'), e); setTimeout(openWa, 180); });
+  $('fab').addEventListener('click', openWa);
+
+  $('restartBtn').addEventListener('click', ()=>{
+    $('phone').value = '';
+    $('err1').textContent = '';
+    show(0);
+  });
+
+  /* PWA: service worker (works on https:// or localhost, not file://) */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+})();
+</script>
+</body>
+</html>
